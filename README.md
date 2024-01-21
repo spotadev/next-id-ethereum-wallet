@@ -1,13 +1,12 @@
 # README
 
-**NOTE:**  Update 21/01/2024 This code does not yet work and is not complete.  This message will
-be updated when it is complete.
+**NOTE:**  Update 22/01/2024 This code is complete and works. This example is using React.
 
 ## What is this project about?
 
 Next.id has API which allow you to associate social medial handles with a Decentralised ID (DID).
 
-This is example code showing how to associate an ethereum address with a next.id DID.
+This is example code showing how to associate an ethereum wallet address with a next.id DID.
 
 It uses Meta Mask wallet to do the required signing so that the user does not need to manage their
 own private key.
@@ -29,6 +28,8 @@ signature twice.
 ## Screen shots
 
 ![App Screen Shot](doc_images/screenshot_1.png)  
+
+![App Screen Shot](doc_images/screenshot_2.png)  
 
 ## Instructions
 
