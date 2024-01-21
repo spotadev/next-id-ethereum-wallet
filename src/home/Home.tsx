@@ -248,7 +248,7 @@ export function Home() {
             ${address}
           </div>
           <div style={{ paddingTop: '20px' }}>
-            <button onClick={() => disconnect()}>Disconnect Wallet</button>
+            <button className={appStyle.button} onClick={() => disconnect()}>Disconnect Wallet</button>
           </div >
         </>
       );
@@ -258,9 +258,9 @@ export function Home() {
         <div>
           Connect to Wallet - PENDING
           &nbsp;&nbsp;
-          <button onClick={() => open()}>Connect / Disconnect Wallet</button>
+          <button className={appStyle.button} onClick={() => open()}>Connect / Disconnect Wallet</button>
           &nbsp;&nbsp;
-          <button onClick={() => open({ view: 'Networks' })}>Select Network</button>
+          <button className={appStyle.button} onClick={() => open({ view: 'Networks' })}>Select Network</button>
         </div>
       )
     }
@@ -390,7 +390,7 @@ export function Home() {
       </p>
       {getAvatarStatusJSX()}
       <p>
-        <button onClick={() => next()}>Next</button>
+        <button className={appStyle.button} onClick={() => next()}>Next</button>
       </p>
     </div>
   );
