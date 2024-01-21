@@ -157,7 +157,10 @@ export function Home() {
       "platform": "ethereum",
       "identity": address,
       "public_key": publicKey,
-      "extra": { signatures: [signedPayloadBase64, signedPayloadBase64] },
+      "extra": {
+        "wallet_signature": signedPayloadBase64,
+        "signature": signedPayloadBase64
+      },
       "uuid": uuid,
       "created_at": createdAt
     };
