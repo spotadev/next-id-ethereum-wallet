@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import logo from './logo.svg';
 import './App.css';
 import { createWeb3Modal, defaultWagmiConfig } from '@web3modal/wagmi/react'
-import { useWeb3Modal } from '@web3modal/wagmi/react'
-// import { signMessage } from '@wagmi/core'
 import { polygonMumbai } from 'wagmi/chains'
 
 import { WagmiConfig, useAccount } from 'wagmi';

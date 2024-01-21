@@ -56,7 +56,6 @@ export default interface AvatarStatusResponse {
 export function Home() {
   const [addressToAdd, seAddressToAdd] = useState<string | null>(null);
   const [publicKey, setPublicKey] = useState<string | null>(null);
-  const [proofPayloadResponse, setProofPayloadResponse] = useState<ProofPayloadResponse | null>();
   const [errorMessage, setErrorMessage] = useState<string | null>();
   const [verifiedProof, setVerifiedProof] = useState<boolean>(false);
   const [avatarStatusResponse, setAvatarStatusResponse] = useState<AvatarStatusResponse | null>(null);
@@ -66,7 +65,7 @@ export function Home() {
   const { open, close } = useWeb3Modal();
 
   const getProofPayloadResponse =
-    async (twitterHandle: string, publicKey: string): Promise<ProofPayloadResponse> => {
+    async (address: string, publicKey: string): Promise<ProofPayloadResponse> => {
       const baseUrl = process.env.REACT_APP_PROOF_SERVICE_BASE_URL;
 
       if (!baseUrl) {
@@ -84,8 +83,8 @@ export function Home() {
       const request =
       {
         "action": "create",
-        "platform": "twitter",
-        "identity": twitterHandle,
+        "platform": "ethereum",
+        "identity": address,
         "public_key": publicKey
       };
 
@@ -103,8 +102,8 @@ export function Home() {
 
   const getNextIdProofPayload =
     async (
-      twitterHandle: string
-    ): Promise<ProofPayloadResponse> => {
+      address: string
+    ): Promise<{ proofPayloadResponse: ProofPayloadResponse, publicKey: string }> => {
       const message = 'next.id rocks';
       const signature = await signMessage({ message: message });
       const messageHash = hashMessage(message);
@@ -115,45 +114,28 @@ export function Home() {
       const recoveredPublicKey = await recoverPublicKey({
         hash: messageHash,
         signature: signature
-      })
+      });
 
       setPublicKey(recoveredPublicKey);
 
       const proofPayloadResponse: ProofPayloadResponse =
-        await getProofPayloadResponse(twitterHandle, recoveredPublicKey);
+        await getProofPayloadResponse(address, recoveredPublicKey);
 
       console.log('recoveredPublicKey', recoveredPublicKey);
       console.log('proofPayloadResponse', proofPayloadResponse);
-      return proofPayloadResponse;
+      return {
+        proofPayloadResponse: proofPayloadResponse,
+        publicKey: recoveredPublicKey
+      };
     }
-
-
-  const next = async () => {
-    // if (xHandle) {
-    //   const proofPayloadResponse: ProofPayloadResponse =
-    //     await getNextIdProofPayload(xHandle);
-
-    //   console.log('proofPayloadResponse', proofPayloadResponse);
-    //   setProofPayloadResponse(proofPayloadResponse);
-    //   await buildDataForTweet(proofPayloadResponse);
-    // }
-  }
 
   const verifyProof = async (
-    xHandle: string,
+    signedPayloadBase64: string,
+    address: string,
     publicKey: string,
-    numberAtEndTweetUrl: string,
+    createdAt: string,
     uuid: string
-  ): Promise<void> => {
-
-    if (!proofPayloadResponse) {
-      const errrorMessage =
-        'Expecting all of these to be populated: ' +
-        `proofPayloadResponse: ${proofPayloadResponse}, ` +
-        `xHandle: ${xHandle}, publicKey: ${publicKey}`;
-
-      throw new Error(errrorMessage);
-    }
+  ): Promise<boolean> => {
 
     const baseUrl = process.env.REACT_APP_PROOF_SERVICE_BASE_URL;
 
@@ -169,30 +151,23 @@ export function Home() {
       }
     };
 
-    const createdAt: string = proofPayloadResponse.created_at;
-
     const request =
     {
       "action": "create",
-      "platform": "twitter",
-      "identity": xHandle,
+      "platform": "ethereum",
+      "identity": address,
       "public_key": publicKey,
-      "proof_location": numberAtEndTweetUrl,
-      "extra": {},
+      "extra": [signedPayloadBase64, signedPayloadBase64],
       "uuid": uuid,
       "created_at": createdAt
     };
 
     let { status } = await axios.post<{}>(url, request, config);
 
-    if (status === 201) {
-      console.log('Verified');
-    } else {
-      throw new Error(`Failed to verify proof. Status: ${status}`);
-    }
+    return status === 201;
   }
 
-  const getAvatarStatus = async () => {
+  const getAvatarDetails = async () => {
     const baseUrl = process.env.REACT_APP_PROOF_SERVICE_BASE_URL;
     const platform = 'ethereum';
     const exact = true;
@@ -214,30 +189,35 @@ export function Home() {
     setAvatarStatusResponse(avatarStatusResponse);
   }
 
-  // const verify = async () => {
-  //   if (tweetNumber) {
-  //     if (!proofPayloadResponse || !xHandle || !publicKey) {
-  //       const errrorMessage =
-  //         'Expecting all of these to be populated: ' +
-  //         `proofPayloadResponse: ${proofPayloadResponse}, ` +
-  //         `xHandle: ${xHandle}, publicKey: ${publicKey}`;
+  const next = async () => {
+    if (address) {
 
-  //       throw new Error(errrorMessage);
-  //     }
+      // Get payload to sign
+      const response: { proofPayloadResponse: ProofPayloadResponse, publicKey: string } =
+        await getNextIdProofPayload(address);
 
-  //     const uuid = proofPayloadResponse?.uuid;
+      const publicKey = response.publicKey;
+      const proofPayloadResponse = response.proofPayloadResponse;
+      const message = proofPayloadResponse.sign_payload;
 
-  //     try {
-  //       await verifyProof(xHandle, publicKey, tweetNumber, uuid);
-  //       setVerifiedProof(true);
-  //     }
-  //     catch (error) {
-  //       setVerifiedProof(false);
-  //       setErrorMessage(
-  //         'Tweet did not pass validation. The twitter handle was not added to your next.id DID');
-  //     }
-  //   }
-  // }
+      // sign payload and convert signature to base64
+      const signedPayload = await signMessage({ message: message });
+      console.log('signedPayload', signedPayload);
+      const signatureWithoutPrefix = signedPayload.slice(2);
+      const bufferSignatureWithoutPrefix = Buffer.from(signatureWithoutPrefix, 'hex');
+      const signedPayloadBase64 = bufferSignatureWithoutPrefix.toString('base64');
+      console.log('signedPayloadBase64', signedPayloadBase64);
+
+      // call proof
+      const createdAt = response.proofPayloadResponse.created_at;
+      const uuid = response.proofPayloadResponse.uuid;
+      const veriiedProof = await verifyProof(signedPayloadBase64, address, publicKey, createdAt, uuid);
+      setVerifiedProof(veriiedProof);
+
+      // get Avatar details
+      getAvatarDetails();
+    }
+  }
 
   const getConnectWalletJSX = () => {
     if (isConnected) {
@@ -267,16 +247,18 @@ export function Home() {
   }
 
   const getDIDAddedJSX = () => {
-    if (verifiedProof) {
+    if (verifiedProof && avatarStatusResponse) {
       return (
         <p>
           Your ethereum address has been added to your next.id DID
         </p>
 
       );
-    } else if (errorMessage) {
+    } else if (avatarStatusResponse) {
       return (
-        <div style={{ color: 'red' }}>{errorMessage}</div>
+        <p>
+          Your ethereum address was not added successfully
+        </p>
       );
     }
     else {
@@ -285,7 +267,7 @@ export function Home() {
   }
 
   const getAvatarStatusJSX = () => {
-    if (avatarStatusResponse && avatarStatusResponse.ids.length > 0) {
+    if (verifiedProof && avatarStatusResponse && avatarStatusResponse.ids.length > 0) {
       return (
         <div>
           <div style={{ fontWeight: 'bold', paddingBottom: '10px', paddingTop: '20px' }}>DID details:</div>
@@ -347,9 +329,7 @@ export function Home() {
         <>
           <div style={{ fontWeight: 'bold', paddingBottom: '10px', paddingTop: '20px' }}>DID details:</div>
           <div style={{ backgroundColor: 'lightgreen', color: 'red', padding: '10px' }}>
-            No Avatar / Decentralised(DID) found.
-            <br /><br />
-            You can go ahead and click the "Add twitter to DID" button
+            No Avatar / Decentralised (DID) found.
           </div>
         </>
       );
@@ -383,15 +363,17 @@ export function Home() {
 
       <div style={{ fontWeight: 'bold', paddingTop: '20px' }}>Press Next Instructions:</div>
       <p>
-        Once you are connected above, press Next.  The code will doo the following:
+        Once you are connected above, press Next.  The code will do the following:
         <ul>
           <li></li>
         </ul>
       </p>
-      {getAvatarStatusJSX()}
       <p>
         <button className={appStyle.button} onClick={() => next()}>Next</button>
       </p>
+
+      {getAvatarStatusJSX()}
+      {getDIDAddedJSX()}
     </div>
   );
 }
