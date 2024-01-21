@@ -1,5 +1,5 @@
 import { useWeb3Modal } from "@web3modal/wagmi/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAccount, useDisconnect } from "wagmi";
 import axios from 'axios';
 import appStyle from '../App.module.css';
@@ -54,15 +54,23 @@ export default interface AvatarStatusResponse {
 }
 
 export function Home() {
-  const [addressToAdd, seAddressToAdd] = useState<string | null>(null);
+  const [addressToAdd, setAddressToAdd] = useState<string | null>(null);
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>();
   const [verifiedProof, setVerifiedProof] = useState<boolean>(false);
   const [avatarStatusResponse, setAvatarStatusResponse] = useState<AvatarStatusResponse | null>(null);
+  const [proofPayloadResponse, setProofPayloadResponse] = useState<ProofPayloadResponse | null>(null);
 
   const { address, isConnected } = useAccount();
+
   const { disconnect } = useDisconnect();
   const { open, close } = useWeb3Modal();
+
+  useEffect(() => {
+    if (address) {
+      setAddressToAdd(address);
+    }
+  }, [address])
 
   const getProofPayloadResponse =
     async (address: string, publicKey: string): Promise<ProofPayloadResponse> => {
@@ -185,6 +193,8 @@ export function Home() {
     let { data, status } = await axios.get<AvatarStatusResponse>(url, config);
     const avatarStatusResponse: AvatarStatusResponse = data;
 
+    console.log('avatarStatusResponse', avatarStatusResponse);
+
     if (status !== 200) {
       throw new Error(`Failed to get AvatarStatusResponse. Status: ${status}`);
     }
@@ -201,6 +211,7 @@ export function Home() {
 
       const publicKey = response.publicKey;
       const proofPayloadResponse = response.proofPayloadResponse;
+      setProofPayloadResponse(proofPayloadResponse);
       const message = proofPayloadResponse.sign_payload;
 
       // sign payload and convert signature to base64
@@ -216,9 +227,6 @@ export function Home() {
       const uuid = response.proofPayloadResponse.uuid;
       const veriiedProof = await verifyProof(signedPayloadBase64, address, publicKey, createdAt, uuid);
       setVerifiedProof(veriiedProof);
-
-      // get Avatar details
-      getAvatarDetails();
     }
   }
 
@@ -228,7 +236,7 @@ export function Home() {
         <>
           <div style={{ fontWeight: 'bold', paddingTop: '20px' }}>Wallet Address:</div>
           <div style={{ paddingTop: '20px' }}>
-            ${address}
+            {address}
           </div>
           <div style={{ paddingTop: '20px' }}>
             <button className={appStyle.button} onClick={() => disconnect()}>Disconnect Wallet</button>
@@ -250,18 +258,17 @@ export function Home() {
   }
 
   const getDIDAddedJSX = () => {
-    if (verifiedProof && avatarStatusResponse) {
+    if (verifiedProof && proofPayloadResponse) {
       return (
-        <p>
+        <div style={{ backgroundColor: 'lightgreen', padding: '10px' }}>
           Your ethereum address has been added to your next.id DID
-        </p>
-
+        </div>
       );
-    } else if (avatarStatusResponse) {
+    } else if (proofPayloadResponse) {
       return (
-        <p>
+        <div style={{ backgroundColor: 'lightgreen', color: 'red', padding: '10px' }}>
           Your ethereum address was not added successfully
-        </p>
+        </div>
       );
     }
     else {
@@ -270,13 +277,13 @@ export function Home() {
   }
 
   const getAvatarStatusJSX = () => {
-    if (verifiedProof && avatarStatusResponse && avatarStatusResponse.ids.length > 0) {
+    if (avatarStatusResponse && avatarStatusResponse.ids.length > 0) {
       return (
         <div>
           <div style={{ fontWeight: 'bold', paddingBottom: '10px', paddingTop: '20px' }}>DID details:</div>
           {
             avatarStatusResponse.ids.map((id, index) => (
-              <div key={id.avatar} style={{ padding: '10px', backgroundColor: index % 2 === 0 ? 'lightGreen' : 'white' }}>
+              <div key={id.avatar} style={{ padding: '10px', backgroundColor: index % 2 === 0 ? 'lightgreen' : 'lightblue' }}>
                 <div>
                   <span style={{ display: 'inline-block', width: '150px' }}>Avatar:</span>
                   <span>{id.avatar}</span>
@@ -292,7 +299,7 @@ export function Home() {
                 {
                   id.proofs.map(
                     (proof, index2) => (
-                      <div key={proof.identity} style={{ paddingLeft: '10px;' }}>
+                      <div key={proof.identity} style={{ marginTop: '10px', padding: '10px', border: '1px solid black', backgroundColor: index2 % 2 === 0 ? 'orange' : 'yellow' }}>
                         <div>
                           <span style={{ display: 'inline-block', width: '150px' }}>Proof created at:</span>
                           <span>{proof.created_at}</span>
@@ -307,7 +314,7 @@ export function Home() {
                         </div>
                         <div>
                           <span style={{ display: 'inline-block', width: '150px' }}>Is Valid:</span>
-                          <span>{proof.is_valid}</span>
+                          <span>{String(proof.is_valid)}</span>
                         </div>
                         <div>
                           <span style={{ width: '200px' }}>Invalid Reason:</span>
@@ -364,19 +371,21 @@ export function Home() {
       </p>
       {getConnectWalletJSX()}
 
-      <div style={{ fontWeight: 'bold', paddingTop: '20px' }}>Press Next Instructions:</div>
+      <div style={{ fontWeight: 'bold', paddingTop: '30px' }}>Add your wallet address to your DID:</div>
       <p>
-        Once you are connected above, press Next.  The code will do the following:
-        <ul>
-          <li></li>
-        </ul>
+        Clocking Next will add your wallet address to your avatar / next.id:
       </p>
       <p>
         <button className={appStyle.button} onClick={() => next()}>Next</button>
       </p>
-
-      {getAvatarStatusJSX()}
       {getDIDAddedJSX()}
-    </div>
+      <p style={{ paddingTop: '20px' }}>
+        <span style={{ display: 'inline-block', fontWeight: 'bold' }}> Check if your wallet address is linked to your avatar DID</span>
+        <div style={{ paddingTop: '10px' }}>
+          <button className={appStyle.button} onClick={() => getAvatarDetails()}>Check</button>
+        </div>
+      </p>
+      {getAvatarStatusJSX()}
+    </div >
   );
 }
