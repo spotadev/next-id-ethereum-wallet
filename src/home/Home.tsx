@@ -230,6 +230,10 @@ export function Home() {
     }
   }
 
+  const clear = () => {
+    setAvatarStatusResponse(null);
+  }
+
   const getConnectWalletJSX = () => {
     if (isConnected) {
       return (
@@ -383,6 +387,8 @@ export function Home() {
         <span style={{ display: 'inline-block', fontWeight: 'bold' }}> Check if your wallet address is linked to your avatar DID</span>
         <div style={{ paddingTop: '10px' }}>
           <button className={appStyle.button} onClick={() => getAvatarDetails()}>Check</button>
+          &nbsp;&nbsp;
+          <button className={appStyle.button} onClick={clear}>Clear</button>
         </div>
       </p>
       {getAvatarStatusJSX()}
